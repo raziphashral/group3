@@ -5,6 +5,7 @@ import { TodayView } from './components/TodayView';
 import { CoachView } from './components/CoachView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { PlanView } from './components/PlanView';
+import { TalkToUsView } from './components/TalkToUsView';
 import { LogMealModal } from './components/LogMealModal';
 import { QuickAddModal } from './components/QuickAddModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -14,7 +15,7 @@ import { DayStats, MealItem, RecommendationMeal } from './types';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'today' | 'coach' | 'analytics' | 'plan'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'coach' | 'analytics' | 'plan' | 'talk'>('today');
   const [isLoggingMeal, setIsLoggingMeal] = useState(false);
   const [isQuickAdding, setIsQuickAdding] = useState(false);
   const [mealSlotToLog, setMealSlotToLog] = useState<'Breakfast' | 'Lunch' | 'Snack' | 'Dinner'>('Lunch');
@@ -147,6 +148,12 @@ export default function App() {
     } else if (screenId === 'analytics') {
       setIsLoggingMeal(false);
       setActiveTab('analytics');
+    } else if (screenId === 'plan') {
+      setIsLoggingMeal(false);
+      setActiveTab('plan');
+    } else if (screenId === 'talk') {
+      setIsLoggingMeal(false);
+      setActiveTab('talk');
     } else if (screenId === 'log') {
       setMealSlotToLog('Lunch');
       setIsLoggingMeal(true);
@@ -233,6 +240,8 @@ export default function App() {
                 {activeTab === 'analytics' && <AnalyticsView />}
 
                 {activeTab === 'plan' && <PlanView />}
+
+                {activeTab === 'talk' && <TalkToUsView />}
               </>
             )}
           </div>

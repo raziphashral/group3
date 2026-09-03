@@ -106,7 +106,9 @@ export const Header: React.FC<HeaderProps> = ({
             { id: 'today', label: '1. Today' },
             { id: 'coach', label: '2. Coach AI' },
             { id: 'analytics', label: '3. Analytics' },
-            { id: 'log', label: '4. Log Meal (Vision)' },
+            { id: 'plan', label: '4. Plan' },
+            { id: 'talk', label: '5. Talk to Us' },
+            { id: 'log', label: 'Scanner' },
           ].map((screen) => (
             <button
               key={screen.id}
