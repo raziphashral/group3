@@ -6,6 +6,7 @@ import { CoachView } from './components/CoachView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { PlanView } from './components/PlanView';
 import { LogMealModal } from './components/LogMealModal';
+import { QuickAddModal } from './components/QuickAddModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { FourScreensGalleryView } from './components/FourScreensGalleryView';
 import { INITIAL_DAY_STATS, INITIAL_MEALS } from './data/mockData';
@@ -15,6 +16,7 @@ import { CheckCircle2 } from 'lucide-react';
 export default function App() {
   const [activeTab, setActiveTab] = useState<'today' | 'coach' | 'analytics' | 'plan'>('today');
   const [isLoggingMeal, setIsLoggingMeal] = useState(false);
+  const [isQuickAdding, setIsQuickAdding] = useState(false);
   const [mealSlotToLog, setMealSlotToLog] = useState<'Breakfast' | 'Lunch' | 'Snack' | 'Dinner'>('Lunch');
   const [viewMode, setViewMode] = useState<'mobile' | 'gallery'>('mobile');
   const [dayStats, setDayStats] = useState<DayStats>(INITIAL_DAY_STATS);
@@ -30,6 +32,11 @@ export default function App() {
   const handleOpenLogMeal = (slot: 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner' = 'Lunch') => {
     setMealSlotToLog(slot);
     setIsLoggingMeal(true);
+  };
+
+  const handleOpenQuickAdd = (slot: 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner' = 'Snack') => {
+    setMealSlotToLog(slot);
+    setIsQuickAdding(true);
   };
 
   const handleConfirmLogMeal = (newMealData: Omit<MealItem, 'id' | 'time'>) => {
@@ -208,6 +215,7 @@ export default function App() {
                     dayStats={dayStats}
                     meals={meals}
                     onOpenLogMeal={handleOpenLogMeal}
+                    onOpenQuickAdd={handleOpenQuickAdd}
                     onNavigateToCoach={() => setActiveTab('coach')}
                     onDeleteMeal={handleDeleteMeal}
                     onUpdateWater={handleUpdateWater}
@@ -239,6 +247,15 @@ export default function App() {
             setIsLoggingMeal(false);
             setActiveTab(tab);
           }}
+        />
+      )}
+
+      {/* Quick Add Fast Logging Modal */}
+      {isQuickAdding && (
+        <QuickAddModal
+          defaultSlot={mealSlotToLog}
+          onClose={() => setIsQuickAdding(false)}
+          onLogMeal={handleConfirmLogMeal}
         />
       )}
 

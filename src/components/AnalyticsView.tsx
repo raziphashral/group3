@@ -14,21 +14,35 @@ import {
   X,
   Printer,
   Check,
+  Award,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 import { SCORECARDS, WEEKLY_ADHERENCE } from '../data/mockData';
 import { ScorecardItem } from '../types';
+import { sounds } from '../utils/audio';
 
 export const AnalyticsView: React.FC = () => {
   const [activeRange, setActiveRange] = useState<'Day' | 'Week' | 'Month'>('Week');
   const [expandedCardId, setExpandedCardId] = useState<string | null>('sc-1');
   const [showShareModal, setShowShareModal] = useState(false);
-  const [hoveredDay, setHoveredDay] = useState<string | null>(null);
+  const [hoveredDay, setHoveredDay] = useState<string | null>('Thu');
+  const [copiedNotice, setCopiedNotice] = useState(false);
 
   const goalCalorie = 2100;
   const maxCalorieChart = 2400;
 
+  const handleCopySummary = () => {
+    sounds.playSuccess();
+    setCopiedNotice(true);
+    navigator.clipboard?.writeText(
+      `NutriCoach Pro Report (Aug 28 - Sep 3)\nAverage Calories: 2,045 kcal/day (Target: 2,100 kcal)\nMacro Split: 30% Protein (134g avg) | 40% Carbs (198g avg) | 30% Fats (68g avg)\nAdherence Score: 97% (Optimal metabolic stability)`
+    );
+    setTimeout(() => setCopiedNotice(false), 3000);
+  };
+
   return (
-    <div className="space-y-4 pb-24 max-w-lg mx-auto px-4 pt-2">
+    <div className="space-y-4 pb-24 max-w-lg mx-auto px-4 pt-2 animate-fadeIn">
       {/* Title & Badge */}
       <div className="flex items-start justify-between">
         <div>
@@ -36,12 +50,13 @@ export const AnalyticsView: React.FC = () => {
             METABOLIC PERFORMANCE
           </span>
           <h1 className="font-serif-display text-2xl font-bold text-slate-900 tracking-tight mt-0.5">
-            Analytics & Trends
+            Analytics &amp; Trends
           </h1>
         </div>
 
-        <div className="px-3 py-1 rounded-full bg-indigo-50/90 border border-indigo-100 text-xs font-semibold text-indigo-900 shadow-2xs">
-          97% Target Hit
+        <div className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-900 shadow-2xs flex items-center gap-1">
+          <Award className="w-3.5 h-3.5 text-emerald-700" />
+          <span>97% Target Hit</span>
         </div>
       </div>
 
@@ -50,7 +65,10 @@ export const AnalyticsView: React.FC = () => {
         {(['Day', 'Week', 'Month'] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveRange(tab)}
+            onClick={() => {
+              sounds.playClick();
+              setActiveRange(tab);
+            }}
             className={`flex-1 py-1.5 rounded-xl transition-all text-center ${
               activeRange === tab
                 ? 'bg-white text-slate-900 shadow-xs font-bold'
@@ -63,7 +81,7 @@ export const AnalyticsView: React.FC = () => {
       </div>
 
       {/* Weekly Adherence Chart Card */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-4">
+      <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
@@ -99,18 +117,22 @@ export const AnalyticsView: React.FC = () => {
               const heightPercent = Math.min(100, Math.round((item.calories / maxCalorieChart) * 100));
               const isSurplus = item.status === 'surplus';
               const isToday = item.isToday;
+              const isSelected = hoveredDay === item.day;
 
               return (
                 <div
                   key={item.day}
                   onMouseEnter={() => setHoveredDay(item.day)}
-                  onMouseLeave={() => setHoveredDay(null)}
+                  onClick={() => {
+                    sounds.playClick();
+                    setHoveredDay(item.day);
+                  }}
                   className="flex-1 flex flex-col items-center gap-2 group cursor-pointer"
                 >
-                  {/* Tooltip on hover */}
+                  {/* Tooltip on hover/click */}
                   <div
                     className={`text-[10px] font-bold transition-opacity whitespace-nowrap ${
-                      hoveredDay === item.day ? 'opacity-100 text-slate-900' : 'opacity-0'
+                      isSelected ? 'opacity-100 text-slate-900 scale-105' : 'opacity-0'
                     }`}
                   >
                     {item.calories}
@@ -124,6 +146,8 @@ export const AnalyticsView: React.FC = () => {
                           ? 'bg-amber-500'
                           : isToday
                           ? 'bg-emerald-800'
+                          : isSelected
+                          ? 'bg-emerald-700 ring-2 ring-emerald-300'
                           : 'bg-emerald-500'
                       }`}
                       style={{ height: `${heightPercent}%` }}
@@ -132,7 +156,7 @@ export const AnalyticsView: React.FC = () => {
 
                   <span
                     className={`text-[11px] font-medium transition-colors ${
-                      isToday ? 'text-emerald-900 font-bold' : 'text-slate-500'
+                      isToday ? 'text-emerald-900 font-bold' : isSelected ? 'text-slate-900 font-bold' : 'text-slate-500'
                     }`}
                   >
                     {item.day}
@@ -156,172 +180,157 @@ export const AnalyticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Macro Ratio Card */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-3.5">
+      {/* Macro Ratio Breakdown Card */}
+      <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-serif-display text-base font-bold text-slate-900">
-              Macro Ratio
-            </h3>
-            <div className="text-xs text-slate-400">7-day average nutrient balance</div>
-          </div>
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-            Zone Diet
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+            7-DAY MACRONUTRIENT DISTRIBUTION
           </span>
+          <span className="text-xs text-slate-400 font-medium">Zone Diet Adherence</span>
         </div>
 
-        {/* Segmented Triple Progress Bar */}
-        <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex shadow-inner">
-          <div className="h-full bg-rose-500" style={{ width: '28%' }} title="Protein 28%" />
-          <div className="h-full bg-emerald-500" style={{ width: '46%' }} title="Carbs 46%" />
-          <div className="h-full bg-amber-500" style={{ width: '26%' }} title="Fats 26%" />
+        {/* Stacked Macro Distribution Bar */}
+        <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-100">
+          <div className="h-full bg-rose-500" style={{ width: '30%' }} title="Protein 30%" />
+          <div className="h-full bg-amber-500" style={{ width: '40%' }} title="Carbs 40%" />
+          <div className="h-full bg-emerald-700" style={{ width: '30%' }} title="Fats 30%" />
         </div>
 
-        {/* Breakdown Stats */}
-        <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
-          <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-rose-500" />
-              <span>Protein</span>
-            </div>
-            <div className="text-base font-bold text-slate-900 font-serif-display mt-0.5">
-              28%
-            </div>
-            <div className="text-[11px] text-slate-400 font-medium">143g/day</div>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="bg-rose-50/70 rounded-xl p-2 border border-rose-100">
+            <div className="font-semibold text-rose-700">Protein</div>
+            <div className="text-sm font-bold font-serif-display text-slate-900">30%</div>
+            <div className="text-[10px] text-slate-500">134g / day avg</div>
           </div>
-
-          <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Carbs</span>
-            </div>
-            <div className="text-base font-bold text-slate-900 font-serif-display mt-0.5">
-              46%
-            </div>
-            <div className="text-[11px] text-slate-400 font-medium">235g/day</div>
+          <div className="bg-amber-50/70 rounded-xl p-2 border border-amber-100">
+            <div className="font-semibold text-amber-700">Carbs</div>
+            <div className="text-sm font-bold font-serif-display text-slate-900">40%</div>
+            <div className="text-[10px] text-slate-500">198g / day avg</div>
           </div>
-
-          <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>Fats</span>
-            </div>
-            <div className="text-base font-bold text-slate-900 font-serif-display mt-0.5">
-              26%
-            </div>
-            <div className="text-[11px] text-slate-400 font-medium">59g/day</div>
+          <div className="bg-emerald-50/70 rounded-xl p-2 border border-emerald-100">
+            <div className="font-semibold text-emerald-800">Fats</div>
+            <div className="text-sm font-bold font-serif-display text-slate-900">30%</div>
+            <div className="text-[10px] text-slate-500">68g / day avg</div>
           </div>
         </div>
       </div>
 
-      {/* Vitals Synced Card */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-serif-display text-base font-bold text-slate-900">
-              Vitals Synced
-            </h3>
-            <div className="text-xs text-slate-400">Apple Health & Garmin Connect</div>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Live</span>
-          </div>
-        </div>
+      {/* Micronutrients & Hydration Index */}
+      <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
+          MICRONUTRIENT &amp; VITALITY BENCHMARKS
+        </span>
 
-        {/* 3 Metrics */}
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2.5 rounded-2xl bg-rose-50/50 border border-rose-100/70 flex flex-col items-center">
-            <Flame className="w-4 h-4 text-rose-500 mb-1" />
-            <span className="text-base font-bold text-slate-900 font-serif-display leading-tight">
-              540
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Droplet className="w-4 h-4 text-teal-600" />
+              <div>
+                <span className="font-bold text-slate-900 block">2.4L / day</span>
+                <span className="text-[10px] text-slate-500">Avg Hydration</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+              96%
             </span>
-            <span className="text-[10px] font-medium text-slate-500 mt-0.5">Active kcal</span>
           </div>
 
-          <div className="p-2.5 rounded-2xl bg-teal-50/50 border border-teal-100/70 flex flex-col items-center">
-            <Footprints className="w-4 h-4 text-teal-600 mb-1" />
-            <span className="text-base font-bold text-slate-900 font-serif-display leading-tight">
-              9,420
+          <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Footprints className="w-4 h-4 text-amber-600" />
+              <div>
+                <span className="font-bold text-slate-900 block">10,240</span>
+                <span className="text-[10px] text-slate-500">Daily Steps</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+              102%
             </span>
-            <span className="text-[10px] font-medium text-slate-500 mt-0.5">Steps/day</span>
           </div>
 
-          <div className="p-2.5 rounded-2xl bg-amber-50/50 border border-amber-100/70 flex flex-col items-center">
-            <Droplet className="w-4 h-4 text-amber-500 mb-1" />
-            <span className="text-base font-bold text-slate-900 font-serif-display leading-tight">
-              2.4 L
+          <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-rose-500" />
+              <div>
+                <span className="font-bold text-slate-900 block">34g / day</span>
+                <span className="text-[10px] text-slate-500">Dietary Fiber</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+              Optimal
             </span>
-            <span className="text-[10px] font-medium text-slate-500 mt-0.5">Hydration</span>
+          </div>
+
+          <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Dumbbell className="w-4 h-4 text-indigo-600" />
+              <div>
+                <span className="font-bold text-slate-900 block">4 sessions</span>
+                <span className="text-[10px] text-slate-500">Resistance Training</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+              Goal Met
+            </span>
           </div>
         </div>
       </div>
 
-      {/* End of Day Scorecards Accordion */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <h3 className="font-serif-display text-base font-bold text-slate-900">
-            End of Day Scorecards
-          </h3>
-          <button className="text-xs font-semibold text-emerald-800 hover:text-emerald-900">
-            View History
-          </button>
-        </div>
+      {/* DAILY SCORECARDS Section */}
+      <div className="space-y-3">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
+          DAILY SCORECARDS
+        </span>
 
         <div className="space-y-2">
           {SCORECARDS.map((card) => {
             const isExpanded = expandedCardId === card.id;
+
             return (
               <div
                 key={card.id}
-                className="bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden transition-all"
+                className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden transition-all"
               >
                 <button
-                  onClick={() => setExpandedCardId(isExpanded ? null : card.id)}
-                  className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50/60 transition-colors"
+                  onClick={() => {
+                    sounds.playClick();
+                    setExpandedCardId(isExpanded ? null : card.id);
+                  }}
+                  className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        card.status === 'hit'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : card.status === 'high_protein'
-                          ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                          : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                      }`}
-                    >
-                      {card.status === 'hit' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-                      {card.status === 'high_protein' && <Dumbbell className="w-4 h-4 text-rose-500" />}
-                      {card.status === 'under_budget' && <FileText className="w-4 h-4 text-indigo-600" />}
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold text-xs border border-emerald-100">
+                      {card.day.slice(0, 3)}
                     </div>
-
                     <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                        <span>{card.day}</span>
-                        <span className="text-[11px] font-semibold text-slate-600">
-                          {card.highlightIcon} {card.highlight}
-                        </span>
-                      </div>
+                      <div className="text-xs font-bold text-slate-900">{card.highlight}</div>
                       <div className="text-[11px] text-slate-400">
                         {card.caloriesConsumed.toLocaleString()} kcal consumed
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-slate-400">
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-800">
+                      On Target
+                    </span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    )}
                   </div>
                 </button>
 
                 {isExpanded && (
-                  <div className="px-3.5 pb-3.5 pt-1 text-xs text-slate-600 border-t border-slate-100 space-y-2 bg-slate-50/40">
-                    <p className="leading-relaxed text-slate-600">{card.details}</p>
-                    <div className="flex items-center gap-3 pt-1 text-[11px] font-medium text-slate-500">
+                  <div className="px-4 pb-3.5 pt-1 border-t border-slate-100 text-xs text-slate-600 space-y-2 bg-slate-50/50 animate-fadeIn">
+                    <p className="leading-relaxed">{card.details}</p>
+                    <div className="flex items-center gap-4 text-[11px] text-slate-500 font-medium">
                       <span>Protein: <strong className="text-slate-800">{card.breakdown.protein}g</strong></span>
                       <span>•</span>
                       <span>Carbs: <strong className="text-slate-800">{card.breakdown.carbs}g</strong></span>
                       <span>•</span>
-                      <span>Fat: <strong className="text-slate-800">{card.breakdown.fat}g</strong></span>
+                      <span>Fats: <strong className="text-slate-800">{card.breakdown.fat}g</strong></span>
                     </div>
                   </div>
                 )}
@@ -331,87 +340,78 @@ export const AnalyticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Share with HPB or Dietitian CTA Button */}
-      <div className="pt-2 space-y-1.5 text-center">
-        <button
-          id="btn-share-dietitian"
-          onClick={() => setShowShareModal(true)}
-          className="w-full py-3.5 px-5 rounded-2xl bg-emerald-800 hover:bg-emerald-900 active:scale-[0.99] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
-        >
-          <Share2 className="w-4 h-4 text-emerald-300" />
-          <span>Share with HPB or Dietitian</span>
-        </button>
-        <p className="text-[11px] text-slate-400">
-          Exports certified PDF formatted for Health Promotion Board guidelines.
-        </p>
-      </div>
+      {/* Share / Export Report Button */}
+      <button
+        onClick={() => {
+          sounds.playClick();
+          setShowShareModal(true);
+        }}
+        className="w-full py-3.5 px-4 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 text-slate-800 font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
+      >
+        <Share2 className="w-4 h-4 text-emerald-800" />
+        <span>Export Clinical Report for Dietitian or Coach</span>
+      </button>
 
-      {/* Share / Certified Report Modal */}
+      {/* Share / Report Modal */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
-                  HPB
-                </div>
+                <FileText className="w-5 h-5 text-emerald-800" />
                 <h3 className="font-serif-display font-bold text-base text-slate-900">
-                  Export Dietitian Certified Report
+                  Certified Nutrition Summary
                 </h3>
               </div>
               <button
                 onClick={() => setShowShareModal(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-900 space-y-1">
-              <div className="font-bold flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-700" />
-                <span>Health Promotion Board (HPB) Verified</span>
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-xs space-y-2 text-slate-700 font-mono">
+              <div className="flex justify-between font-bold text-slate-900 border-b border-slate-200 pb-1 font-sans">
+                <span>Sarah Chen (ID: NC-8841)</span>
+                <span>HPB Grade: A</span>
               </div>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                Includes 7-day caloric average (2,045 kcal), micronutrient balances, step counts, and macro split (40C/30P/30F Zone profile).
-              </p>
-            </div>
-
-            <div className="space-y-2 text-xs text-slate-600">
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span>Patient / User:</span>
-                <strong className="text-slate-900">Sarah Chen</strong>
+              <div className="flex justify-between">
+                <span>Avg Daily Intake:</span>
+                <span className="font-bold">2,045 kcal (97% Adherence)</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span>Reporting Window:</span>
-                <strong className="text-slate-900">Oct 18 - Oct 24 (7 Days)</strong>
+              <div className="flex justify-between">
+                <span>Protein Compliance:</span>
+                <span className="font-bold">134g / day (Target: 130g)</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span>Adherence Score:</span>
-                <strong className="text-emerald-800 font-bold">97% Target Hit (Optimal)</strong>
+              <div className="flex justify-between">
+                <span>Saturated Fat &lt;7%:</span>
+                <span className="font-bold text-emerald-700">Pass</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Hydration Index:</span>
+                <span className="font-bold">2.4L / day (Optimal)</span>
               </div>
             </div>
 
-            <div className="pt-2 flex items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <button
-                onClick={() => {
-                  alert('Certified PDF report downloaded successfully!');
-                  setShowShareModal(false);
-                }}
-                className="flex-1 py-3 px-4 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs"
+                onClick={handleCopySummary}
+                className="py-2.5 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
               >
-                <Download className="w-4 h-4" />
-                <span>Download PDF</span>
+                {copiedNotice ? <Check className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                <span>{copiedNotice ? 'Copied Summary!' : 'Copy Summary'}</span>
               </button>
 
               <button
                 onClick={() => {
+                  sounds.playSuccess();
                   window.print();
                 }}
-                className="p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs"
-                title="Print Report"
+                className="py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Printer className="w-4 h-4" />
+                <span>Print PDF</span>
               </button>
             </div>
           </div>

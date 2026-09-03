@@ -20,9 +20,15 @@ import {
   Droplet,
   CircleDot,
   Video,
+  Flashlight,
+  Volume2,
+  Search,
+  Barcode,
+  RefreshCw,
 } from 'lucide-react';
 import { USER_PROFILE, INITIAL_SCAN_INGREDIENTS } from '../data/mockData';
 import { IngredientItem, MealItem } from '../types';
+import { sounds } from '../utils/audio';
 
 interface LogMealModalProps {
   onClose: () => void;
@@ -30,6 +36,39 @@ interface LogMealModalProps {
   onNavigateToCoach: () => void;
   defaultSlot?: 'Breakfast' | 'Lunch' | 'Snack' | 'Dinner';
 }
+
+const BARCODE_ITEMS = [
+  {
+    barcode: '8888001122334',
+    title: 'Chobani Zero Sugar Greek Yogurt (Vanilla)',
+    brand: 'Chobani HPB Verified',
+    calories: 110,
+    protein: 15,
+    carbs: 5,
+    fat: 0,
+    image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    barcode: '074907038145',
+    title: 'Quest Nutrition Chocolate Chip Protein Bar',
+    brand: 'Quest Nutrition',
+    calories: 200,
+    protein: 21,
+    carbs: 22,
+    fat: 7,
+    image: 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    barcode: '7394376616037',
+    title: 'Oatly Barista Edition Oat Milk (250ml)',
+    brand: 'Oatly AB',
+    calories: 140,
+    protein: 3,
+    carbs: 16,
+    fat: 7,
+    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
+  },
+];
 
 export const LogMealModal: React.FC<LogMealModalProps> = ({
   onClose,
@@ -44,6 +83,9 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
   const [tweakText, setTweakText] = useState('');
   const [isCapturing, setIsCapturing] = useState(false);
   const [isLiveCamera, setIsLiveCamera] = useState(false);
+  const [flashOn, setFlashOn] = useState(false);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [naturalTextLog, setNaturalTextLog] = useState('');
   const [customPlateImage, setCustomPlateImage] = useState<string>(
     'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80'
   );
@@ -59,6 +101,7 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
   const totalFat = Math.round(ingredients.reduce((acc, curr) => acc + curr.fat, 0));
 
   const handleAdjustQuantity = (id: string, delta: number) => {
+    sounds.playClick();
     setIngredients((prev) =>
       prev.map((ing) => {
         if (ing.id !== id) return ing;
@@ -76,11 +119,14 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
     );
   };
 
-  const handleApplyTweak = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!tweakText.trim()) return;
+  const applyPresetTweak = (tweak: string) => {
+    sounds.playClick();
+    setTweakText(tweak);
+    executeTweak(tweak);
+  };
 
-    const lower = tweakText.toLowerCase();
+  const executeTweak = (text: string) => {
+    const lower = text.toLowerCase();
     if (lower.includes('half dressing') || lower.includes('less dressing')) {
       setIngredients((prev) =>
         prev.map((ing) =>
@@ -95,7 +141,7 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
         )
       );
       setTweakAppliedNotice("Reduced dressing by 50% (-90 kcal, -10g fat)");
-    } else if (lower.includes('no feta') || lower.includes('remove cheese')) {
+    } else if (lower.includes('no feta') || lower.includes('no cheese') || lower.includes('remove cheese')) {
       setIngredients((prev) => prev.filter((ing) => ing.iconType !== 'dairy'));
       setTweakAppliedNotice("Removed feta cheese (-75 kcal)");
     } else if (lower.includes('extra chicken') || lower.includes('double protein')) {
@@ -112,12 +158,34 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
         )
       );
       setTweakAppliedNotice("Added +50g grilled chicken (+80 kcal, +15g protein)");
+    } else if (lower.includes('avocado')) {
+      setIngredients((prev) => [
+        ...prev,
+        {
+          id: `ing-avocado-${Date.now()}`,
+          name: 'Hass Avocado',
+          calories: 80,
+          protein: 1,
+          carbs: 4,
+          fat: 8,
+          amount: 50,
+          unit: 'g',
+          iconType: 'veg',
+        },
+      ]);
+      setTweakAppliedNotice("Added 50g fresh avocado (+80 kcal, +8g healthy fat)");
     } else {
-      setTweakAppliedNotice(`Applied custom adjustment: "${tweakText}"`);
+      setTweakAppliedNotice(`Applied AI nutritional adjustment: "${text}"`);
     }
 
     setTweakText('');
     setTimeout(() => setTweakAppliedNotice(null), 3500);
+  };
+
+  const handleApplyTweak = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!tweakText.trim()) return;
+    executeTweak(tweakText);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,12 +193,14 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
     if (file) {
       const url = URL.createObjectURL(file);
       setCustomPlateImage(url);
+      sounds.playShutter();
       setIsCapturing(true);
       setTimeout(() => setIsCapturing(false), 800);
     }
   };
 
   const toggleLiveCamera = async () => {
+    sounds.playClick();
     if (isLiveCamera) {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
@@ -148,20 +218,21 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
         }
       } catch (err) {
         console.warn('Camera access fallback to sample capture:', err);
-        alert('Webcam preview not available or permission denied. Using high-definition demo viewfinder!');
       }
     }
   };
 
   const handleSimulateShutter = () => {
+    sounds.playShutter();
     setIsCapturing(true);
     setTimeout(() => {
       setIsCapturing(false);
-      setMatchPercent(92);
+      setMatchPercent(94);
     }, 600);
   };
 
   const handleConfirm = () => {
+    sounds.playSuccess();
     onConfirmLog({
       mealType: defaultSlot,
       title: foodTitle,
@@ -175,20 +246,89 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
     });
   };
 
+  const handleBarcodeSelect = (item: typeof BARCODE_ITEMS[0]) => {
+    sounds.playSuccess();
+    setFoodTitle(item.title);
+    setCustomPlateImage(item.image);
+    setIngredients([
+      {
+        id: `barcode-${Date.now()}`,
+        name: item.title,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        amount: 1,
+        unit: 'serving',
+        iconType: 'dairy',
+      },
+    ]);
+    setActiveTab('photo');
+    setTweakAppliedNotice(`Loaded verified barcode: ${item.title}`);
+    setTimeout(() => setTweakAppliedNotice(null), 3500);
+  };
+
+  const handleParseNaturalText = () => {
+    if (!naturalTextLog.trim()) return;
+    sounds.playSuccess();
+    setFoodTitle(naturalTextLog);
+    setIngredients([
+      {
+        id: `custom-1-${Date.now()}`,
+        name: 'Organic Scrambled Eggs (2x)',
+        calories: 140,
+        protein: 12,
+        carbs: 1,
+        fat: 10,
+        amount: 100,
+        unit: 'g',
+        iconType: 'meat',
+      },
+      {
+        id: `custom-2-${Date.now()}`,
+        name: 'Artisan Sourdough Slice',
+        calories: 120,
+        protein: 4,
+        carbs: 24,
+        fat: 1,
+        amount: 50,
+        unit: 'g',
+        iconType: 'grain',
+      },
+      {
+        id: `custom-3-${Date.now()}`,
+        name: 'Iced Matcha with Oat Milk',
+        calories: 90,
+        protein: 2,
+        carbs: 12,
+        fat: 3,
+        amount: 250,
+        unit: 'ml',
+        iconType: 'dairy',
+      },
+    ]);
+    setActiveTab('photo');
+    setTweakAppliedNotice(`AI parsed "${naturalTextLog}" into 3 verified items!`);
+    setTimeout(() => setTweakAppliedNotice(null), 3500);
+  };
+
   return (
     <div className="space-y-4 pb-24 max-w-lg mx-auto px-4 pt-2 animate-fadeIn">
       {/* Top Header Navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={onClose}
+            onClick={() => {
+              sounds.playClick();
+              onClose();
+            }}
             className="p-1.5 rounded-full hover:bg-slate-100 text-slate-700 transition-colors"
             title="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-emerald-800 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-xl bg-emerald-800 flex items-center justify-center shadow-xs">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-300" />
             </div>
             <h1 className="font-serif-display text-xl font-bold text-slate-900">
@@ -197,20 +337,28 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
           </div>
         </div>
 
-        <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-emerald-500/20">
-          <img
-            src={USER_PROFILE.avatarUrl}
-            alt={USER_PROFILE.name}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
+        <div className="flex items-center gap-2">
+          <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
+            {defaultSlot}
+          </div>
+          <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-emerald-500/20">
+            <img
+              src={USER_PROFILE.avatarUrl}
+              alt={USER_PROFILE.name}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
         </div>
       </div>
 
       {/* Segmented Mode Selector */}
       <div className="bg-slate-100 p-1 rounded-2xl flex items-center text-xs font-semibold text-slate-600">
         <button
-          onClick={() => setActiveTab('photo')}
+          onClick={() => {
+            sounds.playClick();
+            setActiveTab('photo');
+          }}
           className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
             activeTab === 'photo'
               ? 'bg-white text-emerald-900 font-bold shadow-xs'
@@ -222,7 +370,10 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('text')}
+          onClick={() => {
+            sounds.playClick();
+            setActiveTab('text');
+          }}
           className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
             activeTab === 'text'
               ? 'bg-white text-emerald-900 font-bold shadow-xs'
@@ -234,7 +385,10 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('barcode')}
+          onClick={() => {
+            sounds.playClick();
+            setActiveTab('barcode');
+          }}
           className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
             activeTab === 'barcode'
               ? 'bg-white text-emerald-900 font-bold shadow-xs'
@@ -246,118 +400,262 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
         </button>
       </div>
 
-      {/* Live Vision AI Viewfinder Window */}
-      <div className="relative w-full h-72 rounded-3xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md">
-        {/* Background Image or Live Video Stream */}
-        {isLiveCamera ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <img
-            src={customPlateImage}
-            alt="Scanned Food Plate"
-            className={`w-full h-full object-cover transition-opacity duration-300 ${
-              isCapturing ? 'opacity-30 scale-105' : 'opacity-100 scale-100'
-            }`}
-            referrerPolicy="no-referrer"
-          />
-        )}
-
-        {/* Viewfinder Target Corner Brackets */}
-        <div className="absolute inset-8 pointer-events-none">
-          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-sm" />
-          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-sm" />
-          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-sm" />
-          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-sm" />
-        </div>
-
-        {/* Top Badges overlay */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[11px] font-semibold border border-white/10">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>VISION AI LIVE</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => alert('Language set to English (HPB Nutrition Table)')}
-              className="w-7 h-7 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/60"
-              title="Nutrition language"
-            >
-              <Languages className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={toggleLiveCamera}
-              className={`w-7 h-7 rounded-full backdrop-blur-md text-white flex items-center justify-center hover:bg-black/60 ${
-                isLiveCamera ? 'bg-emerald-600' : 'bg-black/40'
-              }`}
-              title={isLiveCamera ? 'Switch to Demo Plate' : 'Use Webcam'}
-            >
-              <Video className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Floating AI Food Match Tag */}
-        <div className="absolute inset-x-0 top-1/3 flex items-center justify-center pointer-events-none z-10">
-          <div className="bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg border border-slate-200/80 flex items-center gap-2 text-xs text-slate-800 pointer-events-auto">
-            <span className="text-slate-400">&lsaquo;</span>
-            <span className="font-bold font-serif-display text-slate-900">{foodTitle}</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-              {matchPercent}% match
-            </span>
-            <span className="text-slate-400">&rsaquo;</span>
-          </div>
-        </div>
-
-        {/* Bottom Viewfinder Action Controls */}
-        <div className="absolute bottom-3 inset-x-0 px-6 flex items-center justify-between z-10">
-          {/* Gallery Button */}
-          <div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              className="hidden"
+      {/* VIEWPORT AREA: PHOTO AI vs TEXT vs BARCODE */}
+      {activeTab === 'photo' && (
+        <div className="relative w-full h-72 rounded-3xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md">
+          {/* Background Image or Live Video Stream */}
+          {isLiveCamera ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/60 active:scale-95 transition-all shadow-md"
-              title="Choose photo from gallery"
-            >
-              <ImageIcon className="w-4 h-4" />
-            </button>
+          ) : (
+            <img
+              src={customPlateImage}
+              alt="Scanned Food Plate"
+              className={`w-full h-full object-cover transition-opacity duration-300 ${
+                isCapturing ? 'opacity-30 scale-105' : 'opacity-100 scale-100'
+              }`}
+              referrerPolicy="no-referrer"
+            />
+          )}
+
+          {/* Flashlight beam simulation */}
+          {flashOn && (
+            <div className="absolute inset-0 bg-white/20 backdrop-brightness-125 pointer-events-none transition-opacity" />
+          )}
+
+          {/* High-tech Pro Animated Scanning Laser Line */}
+          <div className="absolute left-6 right-6 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#34d399] pointer-events-none animate-scanline z-10" />
+
+          {/* Viewfinder Target Corner Brackets */}
+          <div className="absolute inset-8 pointer-events-none">
+            <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-sm" />
+            <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-sm" />
+            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-sm" />
+            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-sm" />
           </div>
 
-          {/* Large Shutter Button */}
-          <button
-            onClick={handleSimulateShutter}
-            className="w-14 h-14 rounded-full border-4 border-emerald-400/80 bg-emerald-800 text-white flex items-center justify-center shadow-lg active:scale-90 hover:scale-105 transition-all"
-            title="Scan plate"
-          >
-            <div className="w-8 h-8 rounded-full border-2 border-emerald-200/60 flex items-center justify-center">
-              <Camera className="w-4 h-4 text-emerald-200" />
-            </div>
-          </button>
+          {/* AI Recognition Object Bounding Boxes */}
+          <div className="absolute top-12 left-10 pointer-events-none z-10">
+            <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-400 text-[10px] font-bold text-emerald-300 backdrop-blur-xs">
+              Grilled Chicken (98%)
+            </span>
+          </div>
+          <div className="absolute bottom-16 right-10 pointer-events-none z-10">
+            <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-400 text-[10px] font-bold text-emerald-300 backdrop-blur-xs">
+              Mixed Greens &amp; Feta (94%)
+            </span>
+          </div>
 
-          {/* Voice Command Button */}
-          <button
-            onClick={() => {
-              setTweakText('half dressing, extra chicken');
-              handleApplyTweak();
-            }}
-            className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/60 active:scale-95 transition-all shadow-md"
-            title="Quick voice input"
-          >
-            <Mic className="w-4 h-4" />
-          </button>
+          {/* Top Badges overlay */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold border border-white/10">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>VISION AI LIVE</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setFlashOn(!flashOn);
+                }}
+                className={`w-7 h-7 rounded-full backdrop-blur-md text-white flex items-center justify-center transition-colors ${
+                  flashOn ? 'bg-amber-500 text-white' : 'bg-black/40 hover:bg-black/60'
+                }`}
+                title="Toggle Torch / Flash"
+              >
+                <Flashlight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={toggleLiveCamera}
+                className={`w-7 h-7 rounded-full backdrop-blur-md text-white flex items-center justify-center hover:bg-black/60 ${
+                  isLiveCamera ? 'bg-emerald-600' : 'bg-black/40'
+                }`}
+                title={isLiveCamera ? 'Switch to Demo Plate' : 'Use Webcam'}
+              >
+                <Video className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Floating AI Food Match Tag */}
+          <div className="absolute inset-x-0 top-1/3 flex items-center justify-center pointer-events-none z-10">
+            <div className="bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg border border-slate-200/80 flex items-center gap-2 text-xs text-slate-800 pointer-events-auto">
+              <span className="font-bold font-serif-display text-slate-900">{foodTitle}</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                {matchPercent}% match
+              </span>
+            </div>
+          </div>
+
+          {/* Bottom Viewfinder Action Controls */}
+          <div className="absolute bottom-3 inset-x-0 px-6 flex items-center justify-between z-10">
+            {/* Gallery Button */}
+            <div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/60 active:scale-95 transition-all shadow-md"
+                title="Choose photo from gallery"
+              >
+                <ImageIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Large Shutter Button */}
+            <button
+              onClick={handleSimulateShutter}
+              className="w-14 h-14 rounded-full border-4 border-emerald-400/80 bg-emerald-800 text-white flex items-center justify-center shadow-lg active:scale-90 hover:scale-105 transition-all animate-radar"
+              title="Capture plate"
+            >
+              <div className="w-8 h-8 rounded-full border-2 border-emerald-200/60 flex items-center justify-center">
+                <Camera className="w-4 h-4 text-emerald-200" />
+              </div>
+            </button>
+
+            {/* Voice Command Button */}
+            <button
+              onClick={() => {
+                applyPresetTweak('half dressing, extra chicken');
+              }}
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/60 active:scale-95 transition-all shadow-md"
+              title="Quick voice preset"
+            >
+              <Mic className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* TEXT / VOICE INPUT MODE */}
+      {activeTab === 'text' && (
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-800">Natural Language Food Parser</span>
+            <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">
+              Gemini Vision &amp; NLU
+            </span>
+          </div>
+
+          <div className="relative">
+            <textarea
+              rows={3}
+              value={naturalTextLog}
+              onChange={(e) => setNaturalTextLog(e.target.value)}
+              placeholder="E.g. 2 scrambled eggs, toasted sourdough with grass-fed butter, and an oat milk flat white..."
+              className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-700"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setIsRecordingVoice(!isRecordingVoice);
+                if (!isRecordingVoice) {
+                  setNaturalTextLog("2 poached eggs with smashed avocado on rye toast");
+                }
+              }}
+              className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                isRecordingVoice
+                  ? 'bg-rose-50 border-rose-200 text-rose-700 animate-pulse'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Mic className="w-3.5 h-3.5" />
+              <span>{isRecordingVoice ? 'Listening...' : 'Dictate with Voice'}</span>
+            </button>
+
+            <button
+              onClick={handleParseNaturalText}
+              className="py-2 px-4 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shadow-xs transition-colors"
+            >
+              Parse Ingredients
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BARCODE SCANNER MODE */}
+      {activeTab === 'barcode' && (
+        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+          <div className="h-44 bg-slate-900 rounded-2xl relative overflow-hidden flex items-center justify-center border border-slate-300">
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <Barcode className="w-24 h-16 text-emerald-400/80" />
+              <span className="text-[11px] font-mono text-emerald-300 mt-2 tracking-widest">
+                AIM CAMERA AT BARCODE
+              </span>
+            </div>
+            <div className="absolute left-6 right-6 h-0.5 bg-rose-500 shadow-[0_0_8px_#f43f5e] animate-scanline pointer-events-none" />
+          </div>
+
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
+              OR SELECT VERIFIED HPB DATABASE PRODUCT
+            </span>
+            <div className="space-y-2">
+              {BARCODE_ITEMS.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleBarcodeSelect(item)}
+                  className="w-full p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-emerald-50/60 hover:border-emerald-200 flex items-center justify-between text-left transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-10 h-10 rounded-lg object-cover border border-slate-200"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-950">
+                        {item.title}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {item.protein}g P • {item.carbs}g C • {item.fat}g F
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 bg-white px-2 py-1 rounded-md border border-slate-200">
+                    {item.calories} kcal
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1-Tap Quick Tweak Chips for Faster Logging */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        <span className="text-[10px] font-bold text-slate-400 uppercase mr-1 whitespace-nowrap">
+          Quick Tweaks:
+        </span>
+        {[
+          'Half dressing',
+          'No cheese',
+          'Extra chicken',
+          'Add avocado',
+        ].map((tweak) => (
+          <button
+            key={tweak}
+            onClick={() => applyPresetTweak(tweak)}
+            className="px-2.5 py-1 rounded-full bg-white border border-slate-200/80 hover:border-emerald-300 text-[11px] font-medium text-slate-700 hover:text-emerald-900 whitespace-nowrap shadow-2xs transition-colors"
+          >
+            {tweak}
+          </button>
+        ))}
       </div>
 
       {/* Lunch Estimate Card */}
@@ -433,6 +731,7 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
           </span>
           <button
             onClick={() => {
+              sounds.playClick();
               const newId = `custom-${Date.now()}`;
               setIngredients((prev) => [
                 ...prev,
@@ -469,6 +768,7 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
                   {ing.iconType === 'veg' && <Leaf className="w-4 h-4 text-emerald-600" />}
                   {ing.iconType === 'oil' && <Droplet className="w-4 h-4 text-amber-500" />}
                   {ing.iconType === 'dairy' && <CircleDot className="w-4 h-4 text-yellow-600" />}
+                  {ing.iconType === 'grain' && <CircleDot className="w-4 h-4 text-amber-700" />}
                 </div>
 
                 <div>
@@ -503,7 +803,7 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
 
         {/* Tweak feedback notice */}
         {tweakAppliedNotice && (
-          <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+          <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2 animate-fadeIn">
             <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
             <span>{tweakAppliedNotice}</span>
           </div>
@@ -549,7 +849,10 @@ export const LogMealModal: React.FC<LogMealModalProps> = ({
 
         <button
           id="btn-suggest-healthier-alt"
-          onClick={onNavigateToCoach}
+          onClick={() => {
+            sounds.playClick();
+            onNavigateToCoach();
+          }}
           className="w-full py-3 px-5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-semibold text-xs text-center transition-colors border border-emerald-200/60"
         >
           Suggest healthier alternative with Coach AI
