@@ -1,0 +1,6 @@
+{
+  "name": "NutriCoach",
+  "description": "AI-powered precision nutrition coaching, live macro tracking, multimodal vision meal logging, and personalized metabolic recommendations.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
