@@ -27,6 +27,9 @@ declare global {
         }) => void;
       }) => void;
     };
+    DISQUSWIDGETS?: {
+      getCount: (options?: { reset?: boolean }) => void;
+    };
     disqus_config?: (this: {
       page: {
         url?: string;
@@ -82,6 +85,9 @@ export const TalkToUsView: React.FC = () => {
         const s = d.createElement('script');
         s.src = 'https://nutricoach2.disqus.com/embed.js';
         s.setAttribute('data-timestamp', String(+new Date()));
+        s.onerror = () => {
+          console.warn('Disqus embed script could not be loaded in this environment.');
+        };
         (d.head || d.body).appendChild(s);
       }
     }
@@ -91,9 +97,18 @@ export const TalkToUsView: React.FC = () => {
     if (!existingCountScript) {
       const countScript = document.createElement('script');
       countScript.id = 'dsq-count-scr';
-      countScript.src = '//nutricoach2.disqus.com/count.js';
+      countScript.src = 'https://nutricoach2.disqus.com/count.js';
       countScript.async = true;
+      countScript.onerror = () => {
+        console.warn('Disqus count script could not be loaded in this environment.');
+      };
       (document.head || document.body).appendChild(countScript);
+    } else if (typeof window.DISQUSWIDGETS !== 'undefined') {
+      try {
+        window.DISQUSWIDGETS.getCount({ reset: true });
+      } catch {
+        // ignore if count widget is still initializing
+      }
     }
   };
 
